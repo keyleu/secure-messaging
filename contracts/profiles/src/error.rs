@@ -10,9 +10,9 @@ pub enum ContractError {
     #[error(transparent)]
     Ownership(#[from] OwnershipError),
 
-    #[error("Invalid reply ID")]
-    InvalidReplyID {},
-
-    #[error("Instantiation of contract error")]
-    InstantiateError {},
+    #[error("Address already has a profile registered to it")]
+    AddressHasProfile {},
+    
+    #[error("User ID already registered")]
+    UserIdAlreadyExists {},
 }
