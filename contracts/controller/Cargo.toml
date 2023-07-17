@@ -1,0 +1,20 @@
+[package]
+name = "controller"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+cosmwasm-schema = { workspace = true }
+cosmwasm-std    = { workspace = true }
+cw-ownable      = { workspace = true }
+cw-storage-plus = { workspace = true }
+cw2             = { workspace = true }
+schemars        = { workspace = true }
+serde           = { workspace = true }
+thiserror       = { workspace = true }
+utils           = { workspace = true }

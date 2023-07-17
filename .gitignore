@@ -1,0 +1,13 @@
+# Build results
+/target
+/Cargo.lock
+
+# IDEs
+.vscode/
+.idea/
+*.iml
+\#*\#
+.\#*
+
+# Build artifacts
+/artifacts
