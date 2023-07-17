@@ -77,9 +77,8 @@ pub fn execute(
 ) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::CreateProfile {
-            address,
-            user_id,
             pub_key,
+            user_id,
         } => todo!(),
         ExecuteMsg::SendMessage {
             content,

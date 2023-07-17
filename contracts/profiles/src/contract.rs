@@ -48,6 +48,7 @@ pub fn execute(
             user_id,
             pubkey,
         } => create_profile(deps, info, address, user_id, pubkey),
+        ExecuteMsg::ChangeUserId { address, user_id } => change_user_id(deps, info, address, user_id),
         ExecuteMsg::UpdatePubkey { address, pubkey } => update_pubkey(deps, info, address, pubkey),
         ExecuteMsg::UpdateOwnership(action) => update_ownership(deps, env, info, action),
     }
@@ -102,6 +103,23 @@ fn update_pubkey(
 
     Ok(Response::new()
         .add_attribute("action", "update_pubkey")
+        .add_attribute("address", address))
+}
+
+fn change_user_id(
+    deps: DepsMut,
+    info: MessageInfo,
+    address: Addr,
+    user_id: String,
+) -> Result<Response, ContractError> {
+    assert_owner(deps.storage, &info.sender)?;
+
+    let mut profile = ADDRESS_TO_PROFILE.load(deps.storage, address.clone())?;
+    profile.user_id = user_id;
+    ADDRESS_TO_PROFILE.save(deps.storage, address.clone(), &profile)?;
+
+    Ok(Response::new()
+        .add_attribute("action", "change_user_id")
         .add_attribute("address", address))
 }
 

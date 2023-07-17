@@ -18,6 +18,10 @@ pub enum ProfileExecuteMsg {
         user_id: String,
         pubkey: String,
     },
+    ChangeUserId {
+        address: Addr,
+        user_id: String,
+    },
     UpdatePubkey{
         address: Addr,
         pubkey: String,
