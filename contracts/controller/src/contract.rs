@@ -1,5 +1,8 @@
+use std::vec;
+
 use cosmwasm_std::{
-    entry_point, to_binary, Addr, DepsMut, Env, MessageInfo, Reply, Response, SubMsg, WasmMsg, CosmosMsg,
+    entry_point, to_binary, Addr, CosmosMsg, DepsMut, Env, MessageInfo, Reply, Response, SubMsg,
+    WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_ownable::initialize_owner;
@@ -76,7 +79,11 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::CreateProfile { pubkey, user_id } => create_profile(deps, info, pubkey, user_id),
+        ExecuteMsg::CreateProfile { pubkey, user_id } => {
+            create_profile(deps, info, pubkey, user_id)
+        }
+        ExecuteMsg::ChangeUserId { user_id } => change_user_id(deps, info, user_id),
+        ExecuteMsg::ChangePubkey { pubkey } => change_pubkey(deps, info, pubkey),
         ExecuteMsg::SendMessage {
             content,
             dest_address,
@@ -124,6 +131,54 @@ fn create_profile(
         .add_attribute("action", "create_profile")
         .add_attribute("sender", info.sender)
         .add_attribute("user_id", user_id))
+}
+
+fn change_user_id(
+    deps: DepsMut,
+    info: MessageInfo,
+    user_id: String,
+) -> Result<Response, ContractError> {
+    let profile_address = PROFILES_ADDRESS.load(deps.storage)?;
+
+    let change_userid_msg = ProfileExecuteMsg::ChangeUserId {
+        address: info.sender.clone(),
+        user_id: user_id.clone(),
+    };
+    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: profile_address.to_string(),
+        msg: to_binary(&change_userid_msg)?,
+        funds: vec![],
+    });
+
+    Ok(Response::new()
+        .add_message(msg)
+        .add_attribute("action", "create_userid")
+        .add_attribute("sender", info.sender)
+        .add_attribute("user_id", user_id))
+}
+
+fn change_pubkey(
+    deps: DepsMut,
+    info: MessageInfo,
+    pubkey: String,
+) -> Result<Response, ContractError> {
+    let profile_address = PROFILES_ADDRESS.load(deps.storage)?;
+
+    let change_pubkey_msg = ProfileExecuteMsg::ChangePubkey {
+        address: info.sender.clone(),
+        pubkey: pubkey.clone(),
+    };
+    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: profile_address.to_string(),
+        msg: to_binary(&change_pubkey_msg)?,
+        funds: vec![],
+    });
+
+    Ok(Response::new()
+        .add_message(msg)
+        .add_attribute("action", "create_pubkey")
+        .add_attribute("sender", info.sender)
+        .add_attribute("pubkey", pubkey))
 }
 
 fn update_ownership(

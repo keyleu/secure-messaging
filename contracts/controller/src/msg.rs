@@ -17,6 +17,12 @@ pub enum ExecuteMsg {
         user_id: String,
         pubkey: String,
     },
+    ChangeUserId {
+        user_id: String,
+    },
+    ChangePubkey{
+        pubkey: String,
+    },
     SendMessage {
         content: String,
         dest_address: Option<String>,

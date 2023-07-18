@@ -48,8 +48,10 @@ pub fn execute(
             user_id,
             pubkey,
         } => create_profile(deps, info, address, user_id, pubkey),
-        ExecuteMsg::ChangeUserId { address, user_id } => change_user_id(deps, info, address, user_id),
-        ExecuteMsg::UpdatePubkey { address, pubkey } => update_pubkey(deps, info, address, pubkey),
+        ExecuteMsg::ChangeUserId { address, user_id } => {
+            change_user_id(deps, info, address, user_id)
+        }
+        ExecuteMsg::ChangePubkey { address, pubkey } => change_pubkey(deps, info, address, pubkey),
         ExecuteMsg::UpdateOwnership(action) => update_ownership(deps, env, info, action),
     }
 }
@@ -89,7 +91,7 @@ fn create_profile(
         .add_attribute("address", address))
 }
 
-fn update_pubkey(
+fn change_pubkey(
     deps: DepsMut,
     info: MessageInfo,
     address: Addr,
@@ -115,6 +117,9 @@ fn change_user_id(
     assert_owner(deps.storage, &info.sender)?;
 
     let mut profile = ADDRESS_TO_PROFILE.load(deps.storage, address.clone())?;
+    if USERID_TO_ADDRESS.has(deps.storage, user_id.clone()) {
+        return Err(ContractError::UserIdAlreadyExists {});
+    }
     profile.user_id = user_id;
     ADDRESS_TO_PROFILE.save(deps.storage, address.clone(), &profile)?;
 

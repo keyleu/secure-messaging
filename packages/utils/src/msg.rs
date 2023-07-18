@@ -22,7 +22,7 @@ pub enum ProfileExecuteMsg {
         address: Addr,
         user_id: String,
     },
-    UpdatePubkey{
+    ChangePubkey {
         address: Addr,
         pubkey: String,
     }
