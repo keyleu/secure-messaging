@@ -1,5 +1,6 @@
-use cosmwasm_std::StdError;
+use cosmwasm_std::{StdError, Coin};
 use cw_ownable::OwnershipError;
+use cw_utils::PaymentError;
 use thiserror::Error;
 
 #[derive(Error, Debug, PartialEq)]
@@ -10,9 +11,15 @@ pub enum ContractError {
     #[error(transparent)]
     Ownership(#[from] OwnershipError),
 
+    #[error("{0}")]
+    Payment(#[from] PaymentError),
+
     #[error("Invalid reply ID")]
     InvalidReplyID {},
 
     #[error("Instantiation of contract error")]
     InstantiateError {},
+
+    #[error("Invalid funds sent. Need to send exactly {}", funds_required )]
+    InvalidFunds { funds_required: Coin },
 }

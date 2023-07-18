@@ -15,7 +15,7 @@ pub struct InstantiateMsg {
 pub enum ExecuteMsg {
     CreateProfile {
         user_id: String,
-        pub_key: String,
+        pubkey: String,
     },
     SendMessage {
         content: String,

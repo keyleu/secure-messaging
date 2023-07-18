@@ -1,10 +1,10 @@
 use cosmwasm_std::{
-    entry_point, to_binary, Addr, DepsMut, Env, MessageInfo, Reply, Response, SubMsg, WasmMsg,
+    entry_point, to_binary, Addr, DepsMut, Env, MessageInfo, Reply, Response, SubMsg, WasmMsg, CosmosMsg,
 };
 use cw2::set_contract_version;
 use cw_ownable::initialize_owner;
-use cw_utils::parse_reply_instantiate_data;
-use utils::msg::{InstantiateMessagesMsg, InstantiateProfilesMsg};
+use cw_utils::{one_coin, parse_reply_instantiate_data};
+use utils::msg::{InstantiateMessagesMsg, InstantiateProfilesMsg, ProfileExecuteMsg};
 
 use crate::{
     error::ContractError,
@@ -76,10 +76,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::CreateProfile {
-            pub_key,
-            user_id,
-        } => todo!(),
+        ExecuteMsg::CreateProfile { pubkey, user_id } => create_profile(deps, info, pubkey, user_id),
         ExecuteMsg::SendMessage {
             content,
             dest_address,
@@ -87,6 +84,46 @@ pub fn execute(
         } => todo!(),
         ExecuteMsg::UpdateOwnership(action) => update_ownership(deps, env, info, action),
     }
+}
+
+fn create_profile(
+    deps: DepsMut,
+    info: MessageInfo,
+    pubkey: String,
+    user_id: String,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    let mut funds = vec![];
+    match config.profile_cost {
+        Some(coin) => {
+            let funds_sent = one_coin(&info)?;
+            if funds_sent != coin {
+                return Err(ContractError::InvalidFunds {
+                    funds_required: coin,
+                });
+            }
+            funds.push(funds_sent);
+        }
+        _ => (),
+    }
+
+    let profile_address = PROFILES_ADDRESS.load(deps.storage)?;
+    let create_profile_msg = ProfileExecuteMsg::CreateProfile {
+        address: info.sender.clone(),
+        user_id: user_id.clone(),
+        pubkey,
+    };
+    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: profile_address.to_string(),
+        msg: to_binary(&create_profile_msg)?,
+        funds,
+    });
+
+    Ok(Response::new()
+        .add_message(msg)
+        .add_attribute("action", "create_profile")
+        .add_attribute("sender", info.sender)
+        .add_attribute("user_id", user_id))
 }
 
 fn update_ownership(
