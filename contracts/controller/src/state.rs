@@ -4,6 +4,7 @@ use cosmwasm_schema::cw_serde;
 
 #[cw_serde]
 pub struct Config {
+    pub message_max_len: u64,
     pub message_cost: Option<Coin>,
     pub profile_cost: Option<Coin>,
 }

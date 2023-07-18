@@ -1,11 +1,11 @@
 use std::vec;
 
 use cosmwasm_std::{
-    entry_point, to_binary, Addr, CosmosMsg, DepsMut, Env, MessageInfo, Reply, Response, SubMsg,
-    WasmMsg,
+    entry_point, to_binary, Addr, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Reply, Response,
+    SubMsg, WasmMsg,
 };
 use cw2::set_contract_version;
-use cw_ownable::initialize_owner;
+use cw_ownable::{assert_owner, initialize_owner};
 use cw_utils::{one_coin, parse_reply_instantiate_data};
 use utils::msg::{InstantiateMessagesMsg, InstantiateProfilesMsg, ProfileExecuteMsg};
 
@@ -38,6 +38,7 @@ pub fn instantiate(
     CONFIG.save(
         deps.storage,
         &Config {
+            message_max_len: msg.message_max_len,
             message_cost: msg.send_message_cost,
             profile_cost: msg.create_profile_cost,
         },
@@ -89,6 +90,7 @@ pub fn execute(
             dest_address,
             dest_id,
         } => todo!(),
+        ExecuteMsg::RetrieveFees { receiver } => retrieve_fees(deps, env, info, receiver),
         ExecuteMsg::UpdateOwnership(action) => update_ownership(deps, env, info, action),
     }
 }
@@ -100,16 +102,14 @@ fn create_profile(
     user_id: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    let mut funds = vec![];
     match config.profile_cost {
         Some(coin) => {
-            let funds_sent = one_coin(&info)?;
-            if funds_sent != coin {
+            let funds = one_coin(&info)?;
+            if funds != coin {
                 return Err(ContractError::InvalidFunds {
                     funds_required: coin,
                 });
             }
-            funds.push(funds_sent);
         }
         _ => (),
     }
@@ -123,7 +123,7 @@ fn create_profile(
     let msg = CosmosMsg::Wasm(WasmMsg::Execute {
         contract_addr: profile_address.to_string(),
         msg: to_binary(&create_profile_msg)?,
-        funds,
+        funds: vec![],
     });
 
     Ok(Response::new()
@@ -179,6 +179,28 @@ fn change_pubkey(
         .add_attribute("action", "create_pubkey")
         .add_attribute("sender", info.sender)
         .add_attribute("pubkey", pubkey))
+}
+
+fn retrieve_fees(
+    deps: DepsMut,
+    env: Env,
+    info: MessageInfo,
+    receiver: Option<Addr>,
+) -> Result<Response, ContractError> {
+    assert_owner(deps.storage, &info.sender)?;
+    let contract_balances = deps.querier.query_all_balances(env.contract.address)?;
+    let receiver_address = deps
+        .api
+        .addr_validate(receiver.unwrap_or(info.sender).as_ref())?;
+
+    let bank_msg = BankMsg::Send {
+        to_address: receiver_address.to_string(),
+        amount: contract_balances,
+    };
+
+    Ok(Response::new()
+        .add_message(bank_msg)
+        .add_attribute("recipient", receiver_address))
 }
 
 fn update_ownership(

@@ -28,3 +28,8 @@ pub enum ProfileExecuteMsg {
     }
 }
 
+#[cw_ownable_execute]
+#[cw_serde]
+pub enum MessageExecuteMsg {
+
+}

@@ -1,0 +1,17 @@
+[package]
+name = "messages"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+cosmwasm-std    = { workspace = true }
+cw-ownable      = { workspace = true }
+thiserror       = { workspace = true }
+cw2             = { workspace = true }
+utils           = { workspace = true }
+cw-storage-plus = { workspace = true }
