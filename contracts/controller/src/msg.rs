@@ -7,6 +7,8 @@ pub struct InstantiateMsg {
     pub code_id_profiles: u64,
     pub code_id_messages: u64,
     pub message_max_len: u64,
+    pub message_query_default_limit: u64,
+    pub message_query_max_limit: u64,
     pub create_profile_cost: Option<Coin>,
     pub send_message_cost: Option<Coin>,
 }

@@ -9,4 +9,10 @@ pub enum ContractError {
 
     #[error(transparent)]
     Ownership(#[from] OwnershipError),
+
+    #[error("Message does not exist")]
+    NoMessage {},
+
+    #[error("Message id {} has no funds", id)]
+    MessageNoFunds { id: u64 },
 }

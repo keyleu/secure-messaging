@@ -15,3 +15,5 @@ thiserror       = { workspace = true }
 cw2             = { workspace = true }
 utils           = { workspace = true }
 cw-storage-plus = { workspace = true }
+cosmwasm-schema = { workspace = true }
+

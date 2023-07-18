@@ -56,7 +56,10 @@ pub fn instantiate(
 
     let wasm_messages_msg = WasmMsg::Instantiate {
         code_id: msg.code_id_messages,
-        msg: to_binary(&InstantiateMessagesMsg {})?,
+        msg: to_binary(&InstantiateMessagesMsg {
+            default_query_limit: msg.message_query_default_limit,
+            max_query_limit: msg.message_query_max_limit,
+        })?,
         funds: vec![],
         admin: Some(env.contract.address.into_string()),
         label: format!("MESSAGE-STORAGE--{}", msg.code_id_messages,),
