@@ -1,6 +1,8 @@
-use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Coin, Addr};
+use cosmwasm_schema::{cw_serde, QueryResponses};
+use cosmwasm_std::{Addr, Coin, Binary};
 use cw_ownable::cw_ownable_execute;
+
+use crate::state::Config;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -23,15 +25,26 @@ pub enum ExecuteMsg {
     ChangeUserId {
         user_id: String,
     },
-    ChangePubkey{
+    ChangePubkey {
         pubkey: String,
     },
     SendMessage {
-        content: String,
-        dest_address: Option<String>,
+        content: Binary,
+        dest_address: Option<Addr>,
         dest_id: Option<String>,
     },
+    ChangeMessagesConfig {
+        message_query_default_limit: u64,
+        message_query_max_limit: u64,
+    },
     RetrieveFees {
-        receiver: Option<Addr>
-    }
+        receiver: Option<Addr>,
+    },
+}
+
+#[cw_serde]
+#[derive(QueryResponses)]
+pub enum QueryMsg {
+    #[returns(Config)]
+    Config {},
 }

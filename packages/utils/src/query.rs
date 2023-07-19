@@ -1,9 +1,11 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Addr, Coin, Binary};
+use cosmwasm_std::Addr;
+
+use crate::elements::Message;
 
 #[cw_serde]
 #[derive(QueryResponses)]
-pub enum ProfileQueryMsg {
+pub enum ProfilesQueryMsg {
     #[returns(ProfileInfo)]
     UserInfo { user_id: String },
     #[returns(ProfileInfo)]
@@ -20,19 +22,28 @@ pub struct ProfileInfo {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum MessagesQueryMsg {
-    #[returns(MessagesInfo)]
-    Messages { from: u64, limit: u64 },
+    #[returns(MessagesResponse)]
+    Messages {
+        address: Addr,
+        from: u64,
+        limit: Option<u64>,
+    },
+    #[returns(TotalMessagesResponse)]
+    TotalMessages { address: Addr },
 }
 
 #[cw_serde]
-pub struct MessagesInfo {
-    pub messages: Vec<MessageInfo>,
+pub struct MessagesResponse {
+    pub messages: Vec<MessageResponse>,
 }
 
 #[cw_serde]
-pub struct MessageInfo {
+pub struct MessageResponse {
     pub id: u64,
-    pub sender: Addr,
-    pub content: Binary,
-    pub funds: Vec<Coin>,
+    pub message: Message,
+}
+
+#[cw_serde]
+pub struct TotalMessagesResponse {
+    pub total: u64,
 }

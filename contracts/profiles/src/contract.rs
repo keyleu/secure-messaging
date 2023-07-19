@@ -3,9 +3,9 @@ use cosmwasm_std::{Addr, Binary, Deps, StdResult};
 use cw2::set_contract_version;
 use cw_ownable::{assert_owner, initialize_owner};
 use utils::elements::Profile;
-use utils::msg::InstantiateProfilesMsg as InstantiateMsg;
-use utils::msg::ProfileExecuteMsg as ExecuteMsg;
-use utils::query::{ProfileInfo, ProfileQueryMsg as QueryMsg};
+use utils::msg::ProfilesInstantiateMsg as InstantiateMsg;
+use utils::msg::ProfilesExecuteMsg as ExecuteMsg;
+use utils::query::{ProfileInfo, ProfilesQueryMsg as QueryMsg};
 
 use crate::error::ContractError;
 use crate::state::{ADDRESS_TO_PROFILE, USERID_TO_ADDRESS};

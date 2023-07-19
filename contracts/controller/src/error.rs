@@ -22,4 +22,13 @@ pub enum ContractError {
 
     #[error("Invalid funds sent. Need to send exactly {}", funds_required )]
     InvalidFunds { funds_required: Coin },
+
+    #[error("A destination address or user id must be provided")]
+    NoDestination {},
+
+    #[error("Message is too long")]
+    MessageTooLong {},
+
+    #[error("Not enough funds to send message")]
+    NotEnoughFundsForMessage {},
 }

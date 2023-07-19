@@ -12,7 +12,4 @@ pub enum ContractError {
 
     #[error("Message does not exist")]
     NoMessage {},
-
-    #[error("Message id {} has no funds", id)]
-    MessageNoFunds { id: u64 },
 }

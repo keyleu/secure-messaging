@@ -1,17 +1,20 @@
-use std::vec;
+use std::{cmp::Ordering, vec};
 
 use cosmwasm_std::{
-    entry_point, to_binary, Addr, BankMsg, CosmosMsg, DepsMut, Env, MessageInfo, Reply, Response,
-    SubMsg, WasmMsg,
+    entry_point, to_binary, Addr, BankMsg, Binary, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
+    Reply, Response, StdResult, SubMsg, WasmMsg,
 };
 use cw2::set_contract_version;
 use cw_ownable::{assert_owner, initialize_owner};
 use cw_utils::{one_coin, parse_reply_instantiate_data};
-use utils::msg::{InstantiateMessagesMsg, InstantiateProfilesMsg, ProfileExecuteMsg};
+use utils::{
+    msg::{MessagesInstantiateMsg, ProfilesInstantiateMsg, MessagesExecuteMsg, ProfilesExecuteMsg},
+    query::{ProfileInfo, ProfilesQueryMsg},
+};
 
 use crate::{
     error::ContractError,
-    msg::{ExecuteMsg, InstantiateMsg},
+    msg::{ExecuteMsg, InstantiateMsg, QueryMsg},
     state::{Config, CONFIG, MESSAGES_ADDRESS, PROFILES_ADDRESS},
 };
 
@@ -46,7 +49,7 @@ pub fn instantiate(
 
     let wasm_profiles_msg = WasmMsg::Instantiate {
         code_id: msg.code_id_profiles,
-        msg: to_binary(&InstantiateProfilesMsg {})?,
+        msg: to_binary(&ProfilesInstantiateMsg {})?,
         funds: vec![],
         admin: Some(env.contract.address.clone().into_string()),
         label: format!("PROFILES-INFORMATION--{}", msg.code_id_profiles,),
@@ -56,7 +59,7 @@ pub fn instantiate(
 
     let wasm_messages_msg = WasmMsg::Instantiate {
         code_id: msg.code_id_messages,
-        msg: to_binary(&InstantiateMessagesMsg {
+        msg: to_binary(&MessagesInstantiateMsg {
             default_query_limit: msg.message_query_default_limit,
             max_query_limit: msg.message_query_max_limit,
         })?,
@@ -92,7 +95,16 @@ pub fn execute(
             content,
             dest_address,
             dest_id,
-        } => todo!(),
+        } => send_message(deps, info, content, dest_address, dest_id),
+        ExecuteMsg::ChangeMessagesConfig {
+            message_query_default_limit,
+            message_query_max_limit,
+        } => change_messages_config(
+            deps,
+            info,
+            message_query_default_limit,
+            message_query_max_limit,
+        ),
         ExecuteMsg::RetrieveFees { receiver } => retrieve_fees(deps, env, info, receiver),
         ExecuteMsg::UpdateOwnership(action) => update_ownership(deps, env, info, action),
     }
@@ -105,20 +117,18 @@ fn create_profile(
     user_id: String,
 ) -> Result<Response, ContractError> {
     let config = CONFIG.load(deps.storage)?;
-    match config.profile_cost {
-        Some(coin) => {
-            let funds = one_coin(&info)?;
-            if funds != coin {
-                return Err(ContractError::InvalidFunds {
-                    funds_required: coin,
-                });
-            }
+
+    if let Some(coin) = config.profile_cost {
+        let funds = one_coin(&info)?;
+        if funds != coin {
+            return Err(ContractError::InvalidFunds {
+                funds_required: coin,
+            });
         }
-        _ => (),
     }
 
     let profile_address = PROFILES_ADDRESS.load(deps.storage)?;
-    let create_profile_msg = ProfileExecuteMsg::CreateProfile {
+    let create_profile_msg = ProfilesExecuteMsg::CreateProfile {
         address: info.sender.clone(),
         user_id: user_id.clone(),
         pubkey,
@@ -143,7 +153,7 @@ fn change_user_id(
 ) -> Result<Response, ContractError> {
     let profile_address = PROFILES_ADDRESS.load(deps.storage)?;
 
-    let change_userid_msg = ProfileExecuteMsg::ChangeUserId {
+    let change_userid_msg = ProfilesExecuteMsg::ChangeUserId {
         address: info.sender.clone(),
         user_id: user_id.clone(),
     };
@@ -167,7 +177,7 @@ fn change_pubkey(
 ) -> Result<Response, ContractError> {
     let profile_address = PROFILES_ADDRESS.load(deps.storage)?;
 
-    let change_pubkey_msg = ProfileExecuteMsg::ChangePubkey {
+    let change_pubkey_msg = ProfilesExecuteMsg::ChangePubkey {
         address: info.sender.clone(),
         pubkey: pubkey.clone(),
     };
@@ -182,6 +192,100 @@ fn change_pubkey(
         .add_attribute("action", "create_pubkey")
         .add_attribute("sender", info.sender)
         .add_attribute("pubkey", pubkey))
+}
+
+fn send_message(
+    deps: DepsMut,
+    info: MessageInfo,
+    content: Binary,
+    dest_address: Option<Addr>,
+    dest_id: Option<String>,
+) -> Result<Response, ContractError> {
+    let config = CONFIG.load(deps.storage)?;
+    let profile_address = PROFILES_ADDRESS.load(deps.storage)?;
+
+    if content.len() > config.message_max_len.try_into().unwrap() {
+        return Err(ContractError::MessageTooLong {});
+    }
+
+    if dest_address.is_none() && dest_id.is_none() {
+        return Err(ContractError::NoDestination {});
+    }
+
+    let destination = match dest_address {
+        Some(address) => deps.api.addr_validate(address.as_ref())?,
+        None => {
+            let profile_info: ProfileInfo = deps.querier.query_wasm_smart(
+                profile_address,
+                &ProfilesQueryMsg::UserInfo {
+                    user_id: dest_id.unwrap(),
+                },
+            )?;
+            profile_info.address
+        }
+    };
+
+    let mut funds_to_send = info.funds;
+
+    if let Some(cost) = config.message_cost {
+        match funds_to_send.iter().position(|c| c.denom == cost.denom) {
+            Some(index) => {
+                match funds_to_send[index].amount.cmp(&cost.amount) {
+                    Ordering::Less => return Err(ContractError::NotEnoughFundsForMessage {}),
+                    Ordering::Equal => {
+                        funds_to_send.remove(index);
+                    }
+                    Ordering::Greater => funds_to_send[index].amount -= cost.amount,
+                };
+            }
+            None => return Err(ContractError::NotEnoughFundsForMessage {}),
+        }
+    }
+
+    let message_address = MESSAGES_ADDRESS.load(deps.storage)?;
+    let create_send_msg = MessagesExecuteMsg::SendMessage {
+        sender: info.sender.clone(),
+        receiver: destination.clone(),
+        message: content,
+    };
+    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: message_address.to_string(),
+        msg: to_binary(&create_send_msg)?,
+        funds: funds_to_send,
+    });
+
+    Ok(Response::new()
+        .add_message(msg)
+        .add_attribute("action", "send_message")
+        .add_attribute("sender", info.sender)
+        .add_attribute("destination", destination))
+}
+
+fn change_messages_config(
+    deps: DepsMut,
+    info: MessageInfo,
+    message_query_default_limit: u64,
+    message_query_max_limit: u64,
+) -> Result<Response, ContractError> {
+    assert_owner(deps.storage, &info.sender)?;
+
+    let messages_address = MESSAGES_ADDRESS.load(deps.storage)?;
+
+    let change_pubkey_msg = MessagesExecuteMsg::ChangeConfig {
+        default_query_limit: message_query_default_limit,
+        max_query_limit: message_query_max_limit,
+    };
+
+    let msg = CosmosMsg::Wasm(WasmMsg::Execute {
+        contract_addr: messages_address.to_string(),
+        msg: to_binary(&change_pubkey_msg)?,
+        funds: vec![],
+    });
+
+    Ok(Response::new()
+        .add_message(msg)
+        .add_attribute("action", "change_messages_config")
+        .add_attribute("sender", info.sender))
 }
 
 fn retrieve_fees(
@@ -214,6 +318,19 @@ fn update_ownership(
 ) -> Result<Response, ContractError> {
     let ownership = cw_ownable::update_ownership(deps, &env.block, &info.sender, action)?;
     Ok(Response::new().add_attributes(ownership.into_attributes()))
+}
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
+    match msg {
+        QueryMsg::Config {} => to_binary(&query_config(deps)?),
+    }
+}
+
+fn query_config(deps: Deps) -> StdResult<Config> {
+    let config = CONFIG.load(deps.storage)?;
+
+    Ok(config)
 }
 
 // Reply callback triggered from instantiation of profiles and messages contract.
